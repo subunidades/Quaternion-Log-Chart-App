@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quaternion log chart</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#eef1f5;--panel:#fff;--ink:#14213d;--mute:#5b6678;--line:#d5dbe4;--acc:#0b7a75;--accink:#fff;--ok:#0b7a75;--diff:#b4561a;--exp:#5b6678;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151f;--panel:#18202e;--ink:#e6ebf3;--mute:#93a0b5;--line:#2a3447;--acc:#3fc1b9;--accink:#10151f;--ok:#3fc1b9;--diff:#f0a060;--exp:#93a0b5}}
+:root[data-theme="dark"]{--bg:#10151f;--panel:#18202e;--ink:#e6ebf3;--mute:#93a0b5;--line:#2a3447;--acc:#3fc1b9;--accink:#10151f;--ok:#3fc1b9;--diff:#f0a060;--exp:#93a0b5}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans",system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:1.9rem;line-height:1.2;margin:0 0 6px;font-weight:600}
+p.lead{color:var(--mute);margin:0 0 22px;max-width:62ch}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
+nav button{border:0;background:var(--line);color:var(--ink);padding:9px 14px;font:inherit;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--acc);color:var(--accink)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+section{background:var(--panel);padding:20px;display:none}
+section.on{display:block}
+section h2{font-size:1.15rem;margin:0 0 6px}
+section p{color:var(--mute);margin:0 0 14px;max-width:70ch}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--mute);gap:3px}
+input{width:92px;padding:8px;border:2px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-family:"IBM Plex Mono",monospace}
+.run{border:0;background:var(--acc);color:var(--accink);padding:10px 16px;font:inherit;font-weight:600;cursor:pointer}
+.out{font-family:"IBM Plex Mono",monospace;font-size:.85rem;margin-top:10px;overflow-x:auto}
+.res{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:6px 0;border-top:1px solid var(--line)}
+.tag{font-weight:500;min-width:52px}
+.ok .tag{color:var(--ok)}.diff .tag{color:var(--diff)}.exp .tag{color:var(--exp)}
+.res span.d{color:var(--mute);word-break:break-word}
+.q{padding:4px 0}
+.note{font-size:.85rem;color:var(--mute);margin-top:14px;max-width:70ch}
+</style>
+</head>
+<body>
+<main>
+<h1>Quaternion log chart</h1>
+<p class="lead">10<sup>q</sup> and log<sub>10</sub>(q) for quaternions, and numerical checks that the log chart gives the Hopf structure of S<sup>1</sup>×S<sup>3</sup>. Everything runs in your browser.</p>
+<nav role="tablist" id="tabs"></nav>
+
+<section id="calc">
+<h2>Calculator</h2>
+<p>Enter a quaternion w + xi + yj + zk. The results use the principal branch.</p>
+<div class="row">
+<label>w<input id="qw" value="1.5"></label><label>x<input id="qx" value="0.4"></label>
+<label>y<input id="qy" value="-0.3"></label><label>z<input id="qz" value="0.2"></label>
+<button class="run" id="calcgo">Compute</button></div>
+<div class="out" id="calcout"></div>
+</section>
+
+<section id="ident">
+<h2>Identities</h2>
+<p>Round trips, the branch limit, non-commutativity and the logarithms of −1 (from <code>quaternion_log10.py</code>).</p>
+<button class="run" data-run="ident">Run checks</button><div class="out"></div>
+</section>
+
+<section id="geom">
+<h2>Metric and hypercomplex structure</h2>
+<p>Pulls the flat metric back through the chart and compares it to the conformal cylinder form (from <code>quaternion_geometry.py</code>).</p>
+<button class="run" data-run="geom">Run checks</button><div class="out"></div>
+</section>
+
+<section id="lck">
+<h2>Locally conformally Kähler</h2>
+<p>Tests dΩ = θ∧Ω for I, J, K with θ = −2 ln10 ds, using finite-difference derivatives (from <code>quaternion_lck.py</code>).</p>
+<button class="run" data-run="lck">Run checks</button><div class="out"></div>
+</section>
+
+<section id="curv">
+<h2>Curvature</h2>
+<p>Ricci scalars computed from the metric alone via Christoffel symbols and nested finite differences (from <code>quaternion_curvature.py</code>). Accuracy is about 1e-5, not 1e-12.</p>
+<button class="run" data-run="curv">Run checks</button><div class="out"></div>
+</section>
+
+<p class="note">Differences from the Python scripts: the Jacobian is analytic and higher derivatives are central finite differences, since JavaScript has no autograd. Checks run at random points inside the principal branch. They are numerical tests, not proofs, and the fact that S<sup>1</sup>×S<sup>3</sup> has no global Kähler metric (b<sub>2</sub> = 0) is taken from the literature.</p>
+</main>
+
+<script>
+const LN10 = Math.log(10);
+const f6 = x => (Math.abs(x) < 1e-3 && x !== 0 ? x.toExponential(2) : x.toFixed(6));
+const fq = q => q.map(f6).join(", ");
+const sci = x => x.toExponential(2);
+
+// ---------- quaternion maths ----------
+function qmul(p, q) {
+  const [pw, px, py, pz] = p, [qw, qx, qy, qz] = q;
+  return [pw*qw - px*qx - py*qy - pz*qz, pw*qx + px*qw + py*qz - pz*qy,
+          pw*qy - px*qz + py*qw + pz*qx, pw*qz + px*qy - py*qx + pz*qw];
+}
+function exp10(q) {
+  const w = q[0], n = Math.hypot(q[1], q[2], q[3]), th = n * LN10, c = Math.pow(10, w);
+  const k = n > 1e-12 ? Math.sin(th) / n : LN10;
+  return [c * Math.cos(th), c * k * q[1], c * k * q[2], c * k * q[3]];
+}
+function log10q(q) {
+  const n = Math.hypot(q[1], q[2], q[3]), mag = Math.hypot(q[0], n);
+  const ang = Math.atan2(n, q[0]), k = n > 1e-12 ? ang / n : 0;
+  return [Math.log(mag) / LN10, k * q[1] / LN10, k * q[2] / LN10, k * q[3] / LN10];
+}
+const maxabs = (a, b) => Math.max(...a.map((x, i) => Math.abs(x - b[i])));
+
+// ---------- matrix helpers (arrays of arrays) ----------
+const zeros = n => Array.from({length: n}, () => new Array(n).fill(0));
+const T = A => A[0].map((_, j) => A.map(r => r[j]));
+const mm = (A, B) => A.map(r => B[0].map((_, j) => r.reduce((s, v, k) => s + v * B[k][j], 0)));
+const madd = (A, B, s = 1) => A.map((r, i) => r.map((v, j) => v + s * B[i][j]));
+const mscale = (A, s) => A.map(r => r.map(v => v * s));
+const mmax = A => Math.max(...A.flat().map(Math.abs));
+function inv(A) {
+  const n = A.length, M = A.map((r, i) => [...r, ...Array.from({length: n}, (_, j) => +(i === j))]);
+  for (let i = 0; i < n; i++) {
+    let p = i; for (let r = i + 1; r < n; r++) if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r;
+    [M[i], M[p]] = [M[p], M[i]];
+    const d = M[i][i]; for (let j = 0; j < 2 * n; j++) M[i][j] /= d;
+    for (let r = 0; r < n; r++) if (r !== i) { const f = M[r][i]; for (let j = 0; j < 2 * n; j++) M[r][j] -= f * M[i][j]; }
+  }
+  return M.map(r => r.slice(n));
+}
+const E4 = () => zeros(4).map((r, i) => (r[i] = 1, r));
+
+// ---------- chart geometry ----------
+function jac(y) {                       // analytic dq/dy, J[i][j] = d q_i / d y_j
+  const s = y[0], w = y.slice(1), r = Math.max(Math.hypot(...w), 1e-12), th = r * LN10, c = Math.pow(10, s);
+  const q = exp10(y), J = zeros(4), wh = w.map(v => v / r);
+  for (let i = 0; i < 4; i++) J[i][0] = LN10 * q[i];
+  for (let j = 0; j < 3; j++) {
+    J[0][j + 1] = -c * Math.sin(th) * LN10 * wh[j];
+    for (let i = 0; i < 3; i++)
+      J[i + 1][j + 1] = c * (LN10 * Math.cos(th) * wh[i] * wh[j] + (Math.sin(th) / r) * ((i === j) - wh[i] * wh[j]));
+  }
+  return J;
+}
+const G = y => { const J = jac(y); return mm(T(J), J); };
+function predicted(y) {
+  const s = y[0], w = y.slice(1), r = Math.hypot(...w), th = r * LN10, c = Math.pow(10 * 1, s) * LN10, f = (Math.sin(th) / th) ** 2;
+  const wh = w.map(v => v / r), M = zeros(4); M[0][0] = 1;
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const P = wh[i] * wh[j]; M[i + 1][j + 1] = P + f * ((i === j) - P); }
+  return mscale(M, c * c);
+}
+function leftMult(u) {
+  const cols = [0, 1, 2, 3].map(k => qmul(u, [0, 1, 2, 3].map(i => +(i === k))));
+  return T(cols);
+}
+function randn() { return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random()); }
+function samplePoints(n) {
+  const out = [];
+  while (out.length < n) {
+    const y = log10q([randn(), randn(), randn(), randn()]), th = Math.hypot(y[1], y[2], y[3]) * LN10;
+    if (th > 0.2 && th < 2.9) out.push(y);
+  }
+  return out;
+}
+function shifted(y, k, h) { const z = y.slice(); z[k] += h; return z; }
+
+// ---------- output ----------
+function line(box, kind, tag, text, detail) {
+  const d = document.createElement("div"); d.className = "res " + kind;
+  d.innerHTML = `<span class="tag">${tag}</span><span>${text}${detail ? `<br><span class="d">${detail}</span>` : ""}</span>`;
+  box.appendChild(d);
+}
+const heading = (box, t) => { const d = document.createElement("div"); d.className = "q"; d.innerHTML = `<b>${t}</b>`; box.appendChild(d); };
+const verdict = (box, name, err, tol) => line(box, err < tol ? "ok" : "diff", err < tol ? "ok" : "DIFF", name, `max error ${sci(err)}`);
+
+// ---------- calculator ----------
+function runCalc() {
+  const q = ["qw", "qx", "qy", "qz"].map(id => parseFloat(document.getElementById(id).value));
+  const box = document.getElementById("calcout"); box.innerHTML = "";
+  if (q.some(isNaN)) return line(box, "diff", "DIFF", "Enter four numbers.");
+  const e = exp10(q);
+  line(box, "ok", "10^q", fq(e));
+  if (Math.hypot(...q) < 1e-12) return line(box, "diff", "DIFF", "log10(0) is undefined.");
+  const l = log10q(q);
+  line(box, "ok", "log10", fq(l));
+  line(box, "ok", "check", "10^(log10 q) − q", sci(maxabs(exp10(l), q)));
+  const n = Math.hypot(q[1], q[2], q[3]) * LN10;
+  const inside = n < Math.PI;
+  line(box, inside ? "ok" : "exp", inside ? "branch" : "wrap",
+    `log10(10^q) = ${fq(log10q(e))}`,
+    inside ? "|v| ln10 < π, so the principal log returns q." : "|v| ln10 ≥ π, so the angle wraps and the result differs from q.");
+}
+
+// ---------- tab: identities ----------
+function runIdent(box) {
+  heading(box, "1. Scalars reduce to 10^x and log10(x)");
+  let e1 = 0, e2 = 0;
+  for (const x of [0.5, 1, 2, 3]) { e1 = Math.max(e1, Math.abs(exp10([x, 0, 0, 0])[0] - 10 ** x)); e2 = Math.max(e2, Math.abs(log10q(exp10([x, 0, 0, 0]))[0] - x)); }
+  verdict(box, "exp10 real part", e1 / 1e3, 1e-9); verdict(box, "log10 real part", e2, 1e-9);
+  heading(box, "2. 10^(log10 q) = q");
+  let e = 0; for (let i = 0; i < 1000; i++) { const q = [randn(), randn(), randn(), randn()]; e = Math.max(e, maxabs(exp10(log10q(q)), q)); }
+  verdict(box, "exp10(log10(q)) = q, 1000 samples", e, 1e-9);
+  heading(box, "3. log10(10^q) = q only when |v| ln10 < π");
+  let ein = 0, eout = 0;
+  for (let i = 0; i < 1000; i++) {
+    let v = [randn(), randn(), randn()]; const nv = Math.hypot(...v); v = v.map(a => a / nv);
+    const a = 0.9 * Math.PI / LN10 * Math.random(), b = 1.5 * Math.PI / LN10, w = randn();
+    const qi = [w, ...v.map(t => t * a)], qo = [w, ...v.map(t => t * b)];
+    ein = Math.max(ein, maxabs(log10q(exp10(qi)), qi)); eout = Math.max(eout, maxabs(log10q(exp10(qo)), qo));
+  }
+  verdict(box, "inside principal branch", ein, 1e-9);
+  line(box, "exp", "wrap", "outside branch", `max error ${sci(eout)} (expected, the log wraps the angle)`);
+  heading(box, "4. 10^(p+q) = 10^p · 10^q only if p and q commute");
+  const p = [randn(), randn(), randn(), randn()], par = [randn(), ...p.slice(1).map(t => t * 0.7)], gen = [randn(), randn(), randn(), randn()];
+  verdict(box, "parallel vector parts", maxabs(exp10(p.map((t, i) => t + par[i])), qmul(exp10(p), exp10(par))), 1e-9);
+  line(box, "exp", "differ", "generic p, q", `max error ${sci(maxabs(exp10(p.map((t, i) => t + gen[i])), qmul(exp10(p), exp10(gen))))} (expected, non-commutative)`);
+  heading(box, "5. Logarithms of −1: one for every unit axis");
+  for (let a = 1; a <= 3; a++) { const c = [0, 0, 0, 0]; c[a] = Math.PI / LN10; verdict(box, `axis ${a}: exp10(π/ln10 · unit) = −1`, maxabs(exp10(c), [-1, 0, 0, 0]), 1e-9); }
+}
+
+// ---------- tab: geometry ----------
+function runGeom(box) {
+  const pts = samplePoints(40);
+  line(box, "exp", "info", `Using ${pts.length} random points inside the principal branch`);
+  heading(box, "1. Pulled-back metric equals the conformal-cylinder form");
+  let e = 0; for (const y of pts) e = Math.max(e, mmax(madd(G(y), predicted(y), -1)) / mmax(predicted(y)));
+  verdict(box, "relative error", e, 1e-9);
+  heading(box, "2. One decade (s → s+1) scales the metric by exactly 100");
+  e = 0; for (const y of pts) { const a = G(shifted(y, 0, 1)); e = Math.max(e, mmax(madd(a, mscale(G(y), 100), -1)) / mmax(a)); }
+  verdict(box, "relative error", e, 1e-9);
+  heading(box, "3. Metric / 10^(2s) depends only on w");
+  e = 0; for (const y of pts) { const y2 = shifted(y, 0, 0.7), a = mscale(G(y), 10 ** (-2 * y[0])), b = mscale(G(y2), 10 ** (-2 * y2[0])); e = Math.max(e, mmax(madd(a, b, -1)) / mmax(a)); }
+  verdict(box, "relative error", e, 1e-9);
+  heading(box, "4. Left multiplication gives a hypercomplex structure");
+  const I4 = E4(), [I, J, K] = [1, 2, 3].map(k => leftMult([0, 1, 2, 3].map(i => +(i === k))));
+  const neg = mscale(I4, -1);
+  verdict(box, "I² = J² = K² = −1", Math.max(mmax(madd(mm(I, I), neg, -1)), mmax(madd(mm(J, J), neg, -1)), mmax(madd(mm(K, K), neg, -1))), 1e-12);
+  verdict(box, "IJ = K", mmax(madd(mm(I, J), K, -1)), 1e-12);
+  verdict(box, "I, J, K orthogonal", Math.max(...[I, J, K].map(A => mmax(madd(mm(T(A), A), I4, -1)))), 1e-12);
+  verdict(box, "I antisymmetric", mmax(madd(I, T(I))), 1e-12);
+  heading(box, "5. The chart is not hyperholomorphic");
+  const pull = y => { const Jy = jac(y); return mm(inv(Jy), mm(I, Jy)); };
+  const Ia = pull(pts[0]), Ib = pull(pts[1]), diff = mmax(madd(Ia, Ib, -1));
+  line(box, "exp", "info", `pulled-back I squares to −1: error ${sci(mmax(madd(mm(Ia, Ia), I4)))}`);
+  line(box, diff > 1e-6 ? "exp" : "diff", diff > 1e-6 ? "varies" : "const", `difference between two points = ${diff.toFixed(3)}`, "Constant in the flat chart, non-constant in the log chart: the chart is a coordinate change.");
+}
+
+// ---------- tab: LCK ----------
+function runLck(box) {
+  const pts = samplePoints(12), h = 1e-4, theta = [-2 * LN10, 0, 0, 0];
+  line(box, "exp", "info", `Using ${pts.length} random points inside the principal branch`);
+  const unit = k => [0, 1, 2, 3].map(i => +(i === k));
+  for (const [name, k] of [["I", 1], ["J", 2], ["K", 3]]) {
+    const A = leftMult(unit(k)), Om0 = T(A);
+    const omega = y => { const Jy = jac(y); return mm(T(Jy), mm(Om0, Jy)); };
+    const Omega = y => mscale(omega(y), 10 ** (-2 * y[0]));
+    // dW[b][c][a] = d_a f_bc
+    const dForm = (fn, y) => {
+      const D = [0, 1, 2, 3].map(a => mscale(madd(fn(shifted(y, a, h)), fn(shifted(y, a, -h)), -1), 1 / (2 * h)));
+      let scale = 0, out = [];
+      for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) for (let c = 0; c < 4; c++) {
+        out.push(D[a][b][c] + D[b][c][a] + D[c][a][b]);
+        scale = Math.max(scale, Math.abs(D[a][b][c]));
+      }
+      return {d: out, scale};
+    };
+    const w = {closed: 0, notclosed: 1e9, lee: 0, inv: 0};
+    for (const y of pts) {
+      const a = dForm(omega, y), b = dForm(Omega, y), Om = Omega(y), rhs = [];
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let l = 0; l < 4; l++)
+        rhs.push(theta[i] * Om[j][l] + theta[j] * Om[l][i] + theta[l] * Om[i][j]);
+      w.closed = Math.max(w.closed, Math.max(...a.d.map(Math.abs)) / a.scale);
+      w.notclosed = Math.min(w.notclosed, Math.max(...b.d.map(Math.abs)) / b.scale);
+      w.lee = Math.max(w.lee, Math.max(...b.d.map((v, i) => Math.abs(v - rhs[i]))) / b.scale);
+      w.inv = Math.max(w.inv, mmax(madd(Omega(shifted(y, 0, 1)), Om, -1)) / mmax(Om));
+    }
+    heading(box, `Structure ${name}`);
+    line(box, w.closed < 1e-5 ? "ok" : "diff", w.closed < 1e-5 ? "ok" : "DIFF", "1. dω = 0 (pulled-back flat form)", `max relative |dω| = ${sci(w.closed)}`);
+    line(box, w.notclosed > 1e-3 ? "ok" : "diff", w.notclosed > 1e-3 ? "ok" : "DIFF", "2. dΩ ≠ 0 (rescaled form not closed)", `min relative |dΩ| = ${sci(w.notclosed)}`);
+    line(box, w.lee < 1e-5 ? "ok" : "diff", w.lee < 1e-5 ? "ok" : "DIFF", "3. dΩ = θ∧Ω", `max relative error = ${sci(w.lee)}`);
+    line(box, w.inv < 1e-9 ? "ok" : "diff", w.inv < 1e-9 ? "ok" : "DIFF", "4. Ω invariant under s → s+1", `max relative error = ${sci(w.inv)}`);
+  }
+  heading(box, "5. Period of θ around one decade loop");
+  line(box, "ok", "ok", `∫θ = ${(-2 * LN10).toFixed(6)} = −2 ln10`, "Closed but with nonzero period, so θ is not the differential of a function on S¹×S³.");
+}
+
+// ---------- tab: curvature ----------
+function christoffel(g, y, h = 1e-4) {
+  const gi = inv(g(y)), dg = [0, 1, 2, 3].map(k => mscale(madd(g(shifted(y, k, h)), g(shifted(y, k, -h)), -1), 1 / (2 * h))); // dg[k][i][j]
+  const Gam = [0, 1, 2, 3].map(() => zeros(4));
+  for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) for (let c = 0; c < 4; c++) {
+    let s = 0; for (let d = 0; d < 4; d++) s += gi[a][d] * (dg[b][d][c] + dg[c][d][b] - dg[d][b][c]);
+    Gam[a][b][c] = 0.5 * s;
+  }
+  return Gam;
+}
+function ricciScalar(g, y) {
+  const h = 1e-3, Gam = christoffel(g, y);
+  const dG = [0, 1, 2, 3].map(k => { const p = christoffel(g, shifted(y, k, h)), m = christoffel(g, shifted(y, k, -h));
+    return p.map((M, a) => M.map((r, b) => r.map((v, c) => (v - m[a][b][c]) / (2 * h)))); }); // dG[k][a][b][c]
+  const ric = zeros(4);
+  for (let b = 0; b < 4; b++) for (let d = 0; d < 4; d++) {
+    let s = 0;
+    for (let a = 0; a < 4; a++) {
+      s += dG[a][a][d][b] - dG[d][a][a][b];
+      for (let e = 0; e < 4; e++) s += Gam[a][a][e] * Gam[e][d][b] - Gam[a][d][e] * Gam[e][a][b];
+    }
+    ric[b][d] = s;
+  }
+  const gi = inv(g(y)); let tr = 0;
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) tr += gi[i][j] * ric[j][i];
+  return tr;
+}
+function runCurv(box) {
+  const pts = samplePoints(6);
+  line(box, "exp", "info", `Using ${pts.length} random points inside the principal branch`);
+  const rows = [
+    ["pulled-back flat metric G", G, 0],
+    ["G / 10^(2s)  (dt² + g_S³)", y => mscale(G(y), 10 ** (-2 * y[0])), 6],
+    ["G / (10^s ln10)²", y => mscale(G(y), 1 / (10 ** y[0] * LN10) ** 2), 6 * LN10 ** 2],
+  ];
+  for (const [name, g, want] of rows) {
+    let e = 0; for (const y of pts) e = Math.max(e, Math.abs(ricciScalar(g, y) - want));
+    line(box, e < 1e-3 ? "ok" : "diff", e < 1e-3 ? "ok" : "DIFF", `Ricci scalar of ${name}`, `expected ${want.toFixed(4)}, max error ${sci(e)}`);
+  }
+  line(box, "exp", "info", "Scalar curvature 6 on the cylinder form is a unit round S³ times R.");
+}
+
+// ---------- wiring ----------
+const runners = {ident: runIdent, geom: runGeom, lck: runLck, curv: runCurv};
+const names = {calc: "Calculator", ident: "Identities", geom: "Geometry", lck: "LCK", curv: "Curvature"};
+const tabs = document.getElementById("tabs");
+function show(id) {
+  for (const b of tabs.children) b.setAttribute("aria-selected", b.dataset.id === id);
+  for (const s of document.querySelectorAll("section")) s.classList.toggle("on", s.id === id);
+}
+for (const id in names) {
+  const b = document.createElement("button"); b.textContent = names[id]; b.dataset.id = id;
+  b.setAttribute("role", "tab"); b.onclick = () => show(id); tabs.appendChild(b);
+}
+document.querySelectorAll("[data-run]").forEach(btn => btn.onclick = () => {
+  const box = btn.parentElement.querySelector(".out"); box.innerHTML = "";
+  btn.disabled = true;
+  setTimeout(() => { try { runners[btn.dataset.run](box); } catch (err) { line(box, "diff", "error", String(err)); } btn.disabled = false; }, 10);
+});
+document.getElementById("calcgo").onclick = runCalc;
+document.querySelectorAll("#calc input").forEach(i => i.addEventListener("keydown", e => e.key === "Enter" && runCalc()));
+show("calc"); runCalc();
+</script>
+</body>
+</html>
