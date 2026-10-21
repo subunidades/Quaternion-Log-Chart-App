@@ -63,25 +63,25 @@ input{width:92px;padding:8px;border:2px solid var(--line);background:var(--bg);c
 <section id="ident">
 <h2>Identities</h2>
 <p>Round trips, the branch limit, non-commutativity and the logarithms of −1 (from <code>quaternion_log10.py</code>).</p>
-<button class="run" data-run="ident">Run checks</button><div class="out"></div>
+<div class="out"></div>
 </section>
 
 <section id="geom">
 <h2>Metric and hypercomplex structure</h2>
 <p>Pulls the flat metric back through the chart and compares it to the conformal cylinder form (from <code>quaternion_geometry.py</code>).</p>
-<button class="run" data-run="geom">Run checks</button><div class="out"></div>
+<div class="out"></div>
 </section>
 
 <section id="lck">
 <h2>Locally conformally Kähler</h2>
 <p>Tests dΩ = θ∧Ω for I, J, K with θ = −2 ln10 ds, using finite-difference derivatives (from <code>quaternion_lck.py</code>).</p>
-<button class="run" data-run="lck">Run checks</button><div class="out"></div>
+<div class="out"></div>
 </section>
 
 <section id="curv">
 <h2>Curvature</h2>
 <p>Ricci scalars computed from the metric alone via Christoffel symbols and nested finite differences (from <code>quaternion_curvature.py</code>). Accuracy is about 1e-5, not 1e-12.</p>
-<button class="run" data-run="curv">Run checks</button><div class="out"></div>
+<div class="out"></div>
 </section>
 
 <p class="note">Differences from the Python scripts: the Jacobian is analytic and higher derivatives are central finite differences, since JavaScript has no autograd. Checks run at random points inside the principal branch. They are numerical tests, not proofs, and the fact that S<sup>1</sup>×S<sup>3</sup> has no global Kähler metric (b<sub>2</sub> = 0) is taken from the literature.</p>
@@ -390,7 +390,6 @@ function runAll() {
   for (const id in runners) execute(id);
   renderSummary();
 }
-document.querySelectorAll("[data-run]").forEach(btn => btn.onclick = () => { execute(btn.dataset.run); renderSummary(); });
 document.getElementById("runall").onclick = runAll;
 document.getElementById("rand").onclick = () => {
   ["qw", "qx", "qy", "qz"].forEach(id => document.getElementById(id).value = randn().toFixed(3));
