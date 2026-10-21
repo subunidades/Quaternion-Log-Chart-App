@@ -35,6 +35,10 @@ input{width:92px;padding:8px;border:2px solid var(--line);background:var(--bg);c
 .ok .tag{color:var(--ok)}.diff .tag{color:var(--diff)}.exp .tag{color:var(--exp)}
 .res span.d{color:var(--mute);word-break:break-word}
 .q{padding:4px 0}
+.bar{background:var(--panel);padding:14px 18px;margin-bottom:14px;border-left:6px solid var(--acc)}
+.bar .row{margin:0}
+.run.alt{background:var(--line);color:var(--ink)}
+#summary{margin-top:14px}
 .note{font-size:.85rem;color:var(--mute);margin-top:14px;max-width:70ch}
 </style>
 </head>
@@ -42,16 +46,18 @@ input{width:92px;padding:8px;border:2px solid var(--line);background:var(--bg);c
 <main>
 <h1>Quaternion log chart</h1>
 <p class="lead">10<sup>q</sup> and log<sub>10</sub>(q) for quaternions, and numerical checks that the log chart gives the Hopf structure of S<sup>1</sup>×S<sup>3</sup>. Everything runs in your browser.</p>
+<div class="bar"><div class="row">
+<label>w<input id="qw" value="1.5"></label><label>x<input id="qx" value="0.4"></label>
+<label>y<input id="qy" value="-0.3"></label><label>z<input id="qz" value="0.2"></label>
+<button class="run" id="runall">Update all tabs</button><button class="run alt" id="rand">Random point</button></div>
+<div class="note" style="margin:8px 0 0">One quaternion drives every tab. Edit it and update to re-run every check at that point.</div></div>
 <nav role="tablist" id="tabs"></nav>
 
 <section id="calc">
 <h2>Calculator</h2>
-<p>Enter a quaternion w + xi + yj + zk. The results use the principal branch.</p>
-<div class="row">
-<label>w<input id="qw" value="1.5"></label><label>x<input id="qx" value="0.4"></label>
-<label>y<input id="qy" value="-0.3"></label><label>z<input id="qz" value="0.2"></label>
-<button class="run" id="calcgo">Compute</button></div>
+<p>Results for the quaternion above, on the principal branch, followed by a summary of every other tab at the same point.</p>
 <div class="out" id="calcout"></div>
+<div class="out" id="summary"></div>
 </section>
 
 <section id="ident">
@@ -149,7 +155,8 @@ function leftMult(u) {
 }
 function randn() { return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random()); }
 function samplePoints(n) {
-  const out = [];
+  const u = userPoint(); hasUser = !!u;
+  const out = u ? [u] : [];
   while (out.length < n) {
     const y = log10q([randn(), randn(), randn(), randn()]), th = Math.hypot(y[1], y[2], y[3]) * LN10;
     if (th > 0.2 && th < 2.9) out.push(y);
@@ -159,7 +166,21 @@ function samplePoints(n) {
 function shifted(y, k, h) { const z = y.slice(); z[k] += h; return z; }
 
 // ---------- output ----------
+let tally = {ok: 0, diff: 0};
+let hasUser = false;
+const readQ = () => ["qw", "qx", "qy", "qz"].map(id => parseFloat(document.getElementById(id).value));
+function userPoint() {
+  const q = readQ(); if (q.some(isNaN) || Math.hypot(...q) < 1e-12) return null;
+  const y = log10q(q), th = Math.hypot(y[1], y[2], y[3]) * LN10;
+  return th > 0.2 && th < 2.9 ? y : null;
+}
+function ptsInfo(box, pts) {
+  line(box, "exp", "info", hasUser
+    ? `Point 1 is your quaternion (chart y = ${fq(pts[0])}); the other ${pts.length - 1} are random points inside the principal branch`
+    : `Using ${pts.length} random points. Your quaternion is invalid or outside the test region (0.2 < θ < 2.9), so it was not used.`);
+}
 function line(box, kind, tag, text, detail) {
+  if (kind === "ok") tally.ok++; else if (kind === "diff") tally.diff++;
   const d = document.createElement("div"); d.className = "res " + kind;
   d.innerHTML = `<span class="tag">${tag}</span><span>${text}${detail ? `<br><span class="d">${detail}</span>` : ""}</span>`;
   box.appendChild(d);
@@ -169,7 +190,7 @@ const verdict = (box, name, err, tol) => line(box, err < tol ? "ok" : "diff", er
 
 // ---------- calculator ----------
 function runCalc() {
-  const q = ["qw", "qx", "qy", "qz"].map(id => parseFloat(document.getElementById(id).value));
+  const q = readQ();
   const box = document.getElementById("calcout"); box.innerHTML = "";
   if (q.some(isNaN)) return line(box, "diff", "DIFF", "Enter four numbers.");
   const e = exp10(q);
@@ -183,10 +204,27 @@ function runCalc() {
   line(box, inside ? "ok" : "exp", inside ? "branch" : "wrap",
     `log10(10^q) = ${fq(log10q(e))}`,
     inside ? "|v| ln10 < π, so the principal log returns q." : "|v| ln10 ≥ π, so the angle wraps and the result differs from q.");
+  const ys = l, th = Math.atan2(Math.hypot(q[1], q[2], q[3]), q[0]);
+  line(box, "ok", "chart", `y = (s, w) = ${fq(ys)}`, `s = log10|q| = ${f6(ys[0])}, decade ${Math.floor(ys[0])}, angle θ = ${th.toFixed(4)} rad`);
+  if (userPoint()) {
+    const err = mmax(madd(G(ys), predicted(ys), -1)) / mmax(predicted(ys)), cc = (10 ** ys[0] * LN10) ** 2;
+    line(box, err < 1e-9 ? "ok" : "diff", err < 1e-9 ? "ok" : "DIFF", "metric at this point", `scale (10^s ln10)² = ${cc.toPrecision(6)}; pulled-back vs predicted relative error ${sci(err)}`);
+  } else line(box, "exp", "info", "outside test region", "The geometry, LCK and curvature tabs use random points only. They need 0.2 < θ < 2.9 so the chart is defined and the metric is non-degenerate.");
 }
 
 // ---------- tab: identities ----------
 function runIdent(box) {
+  const qm = readQ();
+  if (!qm.some(isNaN) && Math.hypot(...qm) > 1e-12) {
+    heading(box, "0. Your quaternion");
+    verdict(box, "10^(log10 q) = q", maxabs(exp10(log10q(qm)), qm), 1e-9);
+    const nn = Math.hypot(qm[1], qm[2], qm[3]) * LN10, rt = maxabs(log10q(exp10(qm)), qm);
+    if (nn < Math.PI) verdict(box, "log10(10^q) = q", rt, 1e-9);
+    else line(box, "exp", "wrap", "log10(10^q) differs from q", `|v| ln10 = ${nn.toFixed(3)} ≥ π; error ${sci(rt)}`);
+    const pp = [randn(), ...qm.slice(1).map(t => t * 0.7)], gg = [randn(), randn(), randn(), randn()];
+    verdict(box, "10^(q+p) = 10^q · 10^p, p parallel to q", maxabs(exp10(qm.map((t, i) => t + pp[i])), qmul(exp10(qm), exp10(pp))), 1e-9);
+    line(box, "exp", "differ", "generic p", `error ${sci(maxabs(exp10(qm.map((t, i) => t + gg[i])), qmul(exp10(qm), exp10(gg))))} (expected, non-commutative)`);
+  }
   heading(box, "1. Scalars reduce to 10^x and log10(x)");
   let e1 = 0, e2 = 0;
   for (const x of [0.5, 1, 2, 3]) { e1 = Math.max(e1, Math.abs(exp10([x, 0, 0, 0])[0] - 10 ** x)); e2 = Math.max(e2, Math.abs(log10q(exp10([x, 0, 0, 0]))[0] - x)); }
@@ -215,7 +253,8 @@ function runIdent(box) {
 // ---------- tab: geometry ----------
 function runGeom(box) {
   const pts = samplePoints(40);
-  line(box, "exp", "info", `Using ${pts.length} random points inside the principal branch`);
+  ptsInfo(box, pts);
+  if (hasUser) line(box, "exp", "info", `metric at your point: diag(G) = ${[0, 1, 2, 3].map(i => sci(G(pts[0])[i][i])).join(", ")}`);
   heading(box, "1. Pulled-back metric equals the conformal-cylinder form");
   let e = 0; for (const y of pts) e = Math.max(e, mmax(madd(G(y), predicted(y), -1)) / mmax(predicted(y)));
   verdict(box, "relative error", e, 1e-9);
@@ -242,7 +281,7 @@ function runGeom(box) {
 // ---------- tab: LCK ----------
 function runLck(box) {
   const pts = samplePoints(12), h = 1e-4, theta = [-2 * LN10, 0, 0, 0];
-  line(box, "exp", "info", `Using ${pts.length} random points inside the principal branch`);
+  ptsInfo(box, pts);
   const unit = k => [0, 1, 2, 3].map(i => +(i === k));
   for (const [name, k] of [["I", 1], ["J", 2], ["K", 3]]) {
     const A = leftMult(unit(k)), Om0 = T(A);
@@ -307,15 +346,15 @@ function ricciScalar(g, y) {
 }
 function runCurv(box) {
   const pts = samplePoints(6);
-  line(box, "exp", "info", `Using ${pts.length} random points inside the principal branch`);
+  ptsInfo(box, pts);
   const rows = [
     ["pulled-back flat metric G", G, 0],
     ["G / 10^(2s)  (dt² + g_S³)", y => mscale(G(y), 10 ** (-2 * y[0])), 6],
     ["G / (10^s ln10)²", y => mscale(G(y), 1 / (10 ** y[0] * LN10) ** 2), 6 * LN10 ** 2],
   ];
   for (const [name, g, want] of rows) {
-    let e = 0; for (const y of pts) e = Math.max(e, Math.abs(ricciScalar(g, y) - want));
-    line(box, e < 1e-3 ? "ok" : "diff", e < 1e-3 ? "ok" : "DIFF", `Ricci scalar of ${name}`, `expected ${want.toFixed(4)}, max error ${sci(e)}`);
+    const vals = pts.map(y => ricciScalar(g, y)), e = Math.max(...vals.map(v => Math.abs(v - want)));
+    line(box, e < 1e-3 ? "ok" : "diff", e < 1e-3 ? "ok" : "DIFF", `Ricci scalar of ${name}`, `expected ${want.toFixed(4)}, max error ${sci(e)}${hasUser ? `; at your point ${vals[0].toFixed(5)}` : ""}`);
   }
   line(box, "exp", "info", "Scalar curvature 6 on the cylinder form is a unit round S³ times R.");
 }
@@ -332,14 +371,33 @@ for (const id in names) {
   const b = document.createElement("button"); b.textContent = names[id]; b.dataset.id = id;
   b.setAttribute("role", "tab"); b.onclick = () => show(id); tabs.appendChild(b);
 }
-document.querySelectorAll("[data-run]").forEach(btn => btn.onclick = () => {
-  const box = btn.parentElement.querySelector(".out"); box.innerHTML = "";
-  btn.disabled = true;
-  setTimeout(() => { try { runners[btn.dataset.run](box); } catch (err) { line(box, "diff", "error", String(err)); } btn.disabled = false; }, 10);
-});
-document.getElementById("calcgo").onclick = runCalc;
-document.querySelectorAll("#calc input").forEach(i => i.addEventListener("keydown", e => e.key === "Enter" && runCalc()));
-show("calc"); runCalc();
+const results = {};
+function execute(id) {
+  const box = document.getElementById(id).querySelector(".out"); box.innerHTML = "";
+  tally = {ok: 0, diff: 0};
+  try { runners[id](box); } catch (err) { line(box, "diff", "error", String(err)); }
+  results[id] = tally;
+  const b = [...tabs.children].find(x => x.dataset.id === id);
+  b.textContent = names[id] + (tally.diff ? ` ⚠ ${tally.diff}` : ` ✓ ${tally.ok}`);
+}
+function renderSummary() {
+  const box = document.getElementById("summary"); box.innerHTML = "";
+  heading(box, "All tabs at this point");
+  for (const id in runners) { const r = results[id]; if (r) line(box, r.diff ? "diff" : "ok", r.diff ? "DIFF" : "ok", names[id], `${r.ok} passed, ${r.diff} differ`); }
+}
+function runAll() {
+  runCalc();
+  for (const id in runners) execute(id);
+  renderSummary();
+}
+document.querySelectorAll("[data-run]").forEach(btn => btn.onclick = () => { execute(btn.dataset.run); renderSummary(); });
+document.getElementById("runall").onclick = runAll;
+document.getElementById("rand").onclick = () => {
+  ["qw", "qx", "qy", "qz"].forEach(id => document.getElementById(id).value = randn().toFixed(3));
+  runAll();
+};
+document.querySelectorAll(".bar input").forEach(i => i.addEventListener("keydown", e => e.key === "Enter" && runAll()));
+show("calc"); runAll();
 </script>
 </body>
 </html>
